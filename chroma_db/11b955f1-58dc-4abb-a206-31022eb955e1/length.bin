@@ -1,0 +1,105 @@
+1)],
+        ]
+
+    def call(self, hidden_state):
+        for layer_module in self.layers:
+            hidden_state = layer_module(hidden_state)
+        return hidden_state
+
+    def build(self, input_shape=None):
+        if self.built:
+            return
+        self.built = True
+        if getattr(self, "layers", None) is not None:
+            for layer in self.layers:
+                with tf.name_scope(layer.name):
+                    layer.build(None)
+
+
+class TFRegNetEncoder(keras.layers.Layer):
+    def __init__(self, config: RegNetConfig, **kwargs):
+        super().__init__(**kwargs)
+        self.stages = []
+        # based on `downsample_in_first_stage`, the first layer of the first stage may or may not downsample the input
+        self.stages.append(
+            TFRegNetStage(
+                config,
+                config.embedding_size,
+                config.hidden_sizes[0],
+                stride=2 if config.downsample_in_first_stage else 1,
+                depth=config.depths[0],
+                name="stages.0",
+            )
+        )
+        in_out_channels = zip(config.hidden_sizes, config.hidden_sizes[1:])
+        for i, ((in_channels, out_channels), depth) in enumerate(zip(in_out_channels, config.depths[1:])):
+            self.stages.append(TFRegNetStage(config, in_channels, out_channels, depth=depth, name=f"stages.{i + 1}"))
+
+    def call(
+        self, hidden_state: tf.Tensor, output_hidden_states: bool = False, return_dict: bool = True
+    ) -> TFBaseModelOutputWithNoAttention:
+        hidden_states = () if output_hidden_states else None
+
+        for stage_module in self.stages:
+            if output_hidden_states:
+                hidden_states = hidden_states + (hidden_state,)
+
+            hidden_state = stage_module(hidden_state)
+
+        if output_hidden_states:
+            hidden_states = hidden_states + (hidden_state,)
+
+        if not return_dict:
+            return tuple(v for v in [hidden_state, hidden_states] if v is not None)
+
+        return TFBaseModelOutputWithNoAttention(last_hidden_state=hidden_state, hidden_states=hidden_states)
+
+    def build(self, input_shape=None):
+        if self.built:
+            return
+        self.built = True
+        for stage in self.stages:
+            with tf.name_scope(stage.name):
+                stage.build(None)
+
+
+@keras_serializable
+class TFRegNetMainLayer(keras.layers.Layer):
+    config_class = RegNetConfig
+
+    def __init__(self, config, **kwargs):
+        super().__init__(**kwargs)
+        self.config = config
+        self.embedder = TFRegNetEmbeddings(config, name="embedder")
+        self.encoder = TFRegNetEncoder(config, name="encoder")
+        self.pooler = keras.layers.GlobalAveragePooling2D(keepdims=True, name="pooler")
+
+    @unpack_inputs
+    def call(
+        self,
+        pixel_values: tf.Tensor,
+        output_hidden_states: Optional[bool] = None,
+        return_dict: Optional[bool] = None,
+        training: bool = False,
+    ) -> TFBaseModelOutputWithPoolingAndNoAttention:
+        output_hidden_states = (
+            output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
+        )
+        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
+
+        embedding_output = self.embedder(pixel_values, training=training)
+
+        encoder_outputs = self.encoder(
+            embedding_output, output_hidden_states=output_hidden_states, return_dict=return_dict, training=training
+        )
+
+        last_hidden_state = encoder_outputs[0]
+        pooled_output = self.pooler(last_hidden_state)
+
+        # Change to NCHW output format have uniformity in the modules
+        pooled_output = tf.transpose(pooled_output, perm=(0, 3, 1, 2))
+        last_hidden_state = tf.transpose(last_hidden_state, perm=(0, 3, 1, 2))
+
+        # Change the other hidden state outputs to NCHW as well
+        if output_hidden_states:
+            hidden_states = tuple([tf.transpose(h, perm=(0, 3, 1, 2)) for h in encoder

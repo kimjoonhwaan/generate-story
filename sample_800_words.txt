@@ -1,0 +1,49 @@
+The quick brown fox jumps over the lazy dog. A cat sits on a mat. The sun is bright. I am happy. You are smart. We can do it. This is a test. That was fun. These are words. Those were books. 
+
+Hello world! How are you? Where do you live? What is your name? When will you come? Who are your friends? Why do you ask? Which one do you want? 
+
+I go to school. You go to work. He goes home. She goes shopping. We go together. They go alone. It is good. This is better. That is best. 
+
+The big red car drives fast. A small blue bike moves slowly. Many green trees grow tall. Few yellow flowers bloom early. Some white clouds float high. All black birds fly away.
+
+Here and there, near and far, up and down, in and out, on and off, left and right, top and bottom, front and back, side to side, round and round.
+
+One, two, three, four, five, six, seven, eight, nine, ten, eleven, twelve, thirteen, fourteen, fifteen, sixteen, seventeen, eighteen, nineteen, twenty.
+
+Apple, banana, orange, grape, pear, peach, plum, cherry, berry, melon, lemon, lime, kiwi, mango, papaya, coconut, pineapple, strawberry, blueberry, raspberry.
+
+Red, blue, green, yellow, purple, orange, pink, brown, black, white, gray, silver, gold, violet, indigo, turquoise, maroon, navy, beige, tan.
+
+Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday. January, February, March, April, May, June, July, August, September, October, November, December.
+
+Run, walk, jump, hop, skip, dance, swim, fly, crawl, climb, slide, roll, spin, turn, twist, bend, stretch, reach, grab, hold.
+
+Happy, sad, angry, excited, calm, nervous, brave, scared, proud, shy, funny, serious, kind, mean, smart, silly, strong, weak, fast, slow.
+
+House, home, room, door, window, wall, floor, ceiling, roof, kitchen, bedroom, bathroom, living room, dining room, garage, yard, garden, park.
+
+Cat, dog, bird, fish, horse, cow, pig, sheep, goat, chicken, duck, rabbit, mouse, elephant, lion, tiger, bear, monkey, giraffe, zebra.
+
+Book, pen, pencil, paper, desk, chair, table, computer, phone, television, radio, clock, lamp, picture, mirror, bag, box, bottle, cup, plate.
+
+Mother, father, sister, brother, grandmother, grandfather, aunt, uncle, cousin, friend, teacher, doctor, nurse, police, farmer, cook, driver, pilot, artist, musician.
+
+School, library, hospital, store, restaurant, bank, post office, fire station, police station, church, museum, theater, park, beach, mountain, forest, river, lake, ocean, desert.
+
+Happy birthday! Merry Christmas! Happy New Year! Good morning! Good afternoon! Good evening! Good night! Have a nice day! See you later! Take care! Good luck! Congratulations!
+
+Spring, summer, autumn, winter. Hot, warm, cool, cold. Sunny, cloudy, rainy, snowy, windy, foggy, stormy, clear, bright, dark, light, heavy.
+
+Beautiful, pretty, cute, handsome, ugly, nice, lovely, wonderful, amazing, fantastic, great, good, bad, terrible, awful, horrible, perfect, excellent, poor, rich.
+
+Love, like, hate, enjoy, prefer, want, need, have, get, give, take, make, do, go, come, see, look, watch, listen, hear, speak, talk, say, tell.
+
+Big, small, large, tiny, huge, giant, little, short, tall, long, wide, narrow, thick, thin, fat, skinny, heavy, light, hard, soft, rough, smooth.
+
+Inside, outside, upstairs, downstairs, everywhere, somewhere, nowhere, anywhere, here, there, near, far, close, away, around, between, among, through, across, over.
+
+Always, never, sometimes, often, usually, rarely, seldom, frequently, occasionally, daily, weekly, monthly, yearly, early, late, soon, later, now, then, today, tomorrow, yesterday.
+
+Very, quite, really, pretty, extremely, incredibly, absolutely, completely, totally, entirely, partly, somewhat, rather, fairly, just, only, even, still, already, yet.
+
+Please, thank you, excuse me, sorry, welcome, goodbye, hello, hi, yes, no, maybe, perhaps, probably, definitely, certainly, surely, obviously, clearly, exactly, approximately. 
