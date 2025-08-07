@@ -1,6 +1,7 @@
 import streamlit as st
 import os
 import tempfile
+import pandas as pd
 from rag_system import RAGSystem
 from typing import List
 import time
