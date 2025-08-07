@@ -228,7 +228,6 @@ def main():
                 
                 elif display_mode == "Table":
                     # Table display with additional info
-                    import pandas as pd
                     
                     word_data = []
                     for word in display_vocab:
