@@ -1,6 +1,6 @@
 import os
 from typing import List, Dict
-from openai import OpenAI
+from openai import OpenAI, AzureOpenAI
 from dotenv import load_dotenv
 import random
 
@@ -8,21 +8,37 @@ load_dotenv()
 
 class StoryGenerator:
     def __init__(self, use_openai: bool = True):
-        """
-        Initialize the story generator
-        
-        Args:
-            use_openai: Whether to use OpenAI API (requires API key) or local generation
-        """
         self.use_openai = use_openai
-        
-        if use_openai:
-            api_key = os.getenv('OPENAI_API_KEY')
-            if not api_key:
-                print("Warning: OPENAI_API_KEY not found. Switching to local generation.")
-                self.use_openai = False
-            else:
-                self.client = OpenAI(api_key=api_key)
+        self.client = None
+        self.is_azure = False
+        self.azure_deployment = None
+
+        if not use_openai:
+            return
+
+        # 1) Azure OpenAI 우선
+        aoai_key = os.getenv("AOAI_API_KEY")
+        aoai_endpoint = os.getenv("AOAI_ENDPOINT")
+        aoai_version = os.getenv("AOAI_API_VERSION")
+        aoai_deploy = os.getenv("AOAI_DEPLOY_GPT4O")
+
+        if aoai_key and aoai_endpoint and aoai_version and aoai_deploy:
+            self.client = AzureOpenAI(
+                api_key=aoai_key,
+                api_version=aoai_version,
+                azure_endpoint=aoai_endpoint,
+            )
+            self.is_azure = True
+            self.azure_deployment = aoai_deploy
+            return
+
+        # 2) 일반 OpenAI
+        api_key = os.getenv("OPENAI_API_KEY")
+        if api_key:
+            self.client = OpenAI(api_key=api_key)
+        else:
+            print("Warning: No OPENAI_API_KEY or AOAI_API_KEY found. Switching to local generation.")
+            self.use_openai = False
     
     def generate_story_with_openai(self, keywords: List[str], context_documents: List[str] = None, 
                                    story_length: str = "medium", available_vocabulary: List[str] = None) -> str:
@@ -116,7 +132,8 @@ Write the story now:"""
                 print(f"   - OpenAI API 시도 {attempt + 1}/{max_retries}...")
                 
                 response = self.client.chat.completions.create(
-                    model="gpt-4",
+                   # model="gpt-4",
+                    model=(self.azure_deployment if self.is_azure else "gpt-4"),
                     messages=[
                         {"role": "system", "content": "You are a story writer who MUST follow vocabulary restrictions EXACTLY. When given a vocabulary list, you can ONLY use words from that list plus basic grammar words (a, an, the, is, are, was, were, etc.). If you cannot express something with the allowed words, you MUST rephrase or find alternatives from the vocabulary list. This is a strict vocabulary exercise."},
                         {"role": "user", "content": prompt}
@@ -312,6 +329,7 @@ Write the story now:"""
         
         # 이야기 템플릿 - 더 동적이고 키워드 중심적으로
         story_templates = [
+            f"[LOCAL]",
             f"In a world where {primary_keywords[0] if len(primary_keywords) > 0 else 'adventure'} was everything, a young person discovered something extraordinary.",
             f"The story begins with an unexpected encounter involving {primary_keywords[0] if len(primary_keywords) > 0 else 'mystery'}.",
             f"Once upon a time, {primary_keywords[0] if len(primary_keywords) > 0 else 'magic'} changed someone's life forever.",

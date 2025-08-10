@@ -8,7 +8,7 @@ import time
 
 # Configure page
 st.set_page_config(
-    page_title="RAG Story Generator",
+    page_title="RAG Story Generator v.05",
     page_icon="📚",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -35,7 +35,7 @@ def initialize_rag_system(use_openai: bool = True):
         return False
 
 def main():
-    st.title("📚 RAG Story Generator")
+    st.title("📚 RAG Story Generator v0.5")
     st.markdown("""
     Welcome to the **RAG Story Generator**! This application uses Retrieval-Augmented Generation 
     to create engaging English stories based on your keywords and uploaded documents.
@@ -58,12 +58,21 @@ def main():
         )
         
         if use_openai:
-            api_key_status = os.getenv('OPENAI_API_KEY')
-            if api_key_status:
-                st.success("✅ OpenAI API key found")
-            else:
-                st.warning("⚠️ OpenAI API key not found. Will use local generation.")
-                st.info("To use OpenAI, create a .env file with: OPENAI_API_KEY=your_key_here")
+            openai_ok = bool(os.getenv("OPENAI_API_KEY"))
+            aoai_ok = all([
+                os.getenv("AOAI_API_KEY"),
+                os.getenv("AOAI_ENDPOINT"),
+                os.getenv("AOAI_API_VERSION"),
+                os.getenv("AOAI_DEPLOY_GPT4O"),
+            ])
+
+        if openai_ok or aoai_ok:
+            st.success("✅ OpenAI/Azure OpenAI configuration found")
+            if aoai_ok:
+                st.caption("Using Azure OpenAI (deployment model name will be used).")
+        else:
+            st.warning("⚠️ No OpenAI/Azure OpenAI configuration found. Will use local generation.")
+            st.info("Set either OPENAI_API_KEY or AOAI_* variables in your environment.")
         
         # Initialize system button
         if st.button("🚀 Initialize RAG System", type="primary"):

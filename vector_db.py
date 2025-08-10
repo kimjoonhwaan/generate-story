@@ -1,5 +1,6 @@
 import chromadb
 from chromadb.config import Settings
+from openai import AzureOpenAI
 import os
 import re
 from typing import List, Dict
@@ -44,6 +45,26 @@ class VectorDB:
         self.vocabulary = set()
         self._load_vocabulary()
         
+        self.azure_embed_client = None
+        self.azure_embed_deployment = None
+
+        ak = os.getenv("AOAI_API_KEY")
+        ae = os.getenv("AOAI_ENDPOINT")
+        av = os.getenv("AOAI_API_VERSION")
+        ad = os.getenv("AOAI_EMBEDDING_DEPLOYMENT")
+        if ak and ae and av and ad:
+            try:
+                self.azure_embed_client = AzureOpenAI(
+                    api_key=ak,
+                    api_version=av,
+                    azure_endpoint=ae,
+                )
+                self.azure_embed_deployment = ad
+            except Exception as e:
+                print(f"Azure Embedding client init failed: {e}")
+                self.azure_embed_client = None
+                self.azure_embed_deployment = None
+    
     def add_documents(self, texts: List[str], metadatas: List[Dict] = None):
         """
         문서를 벡터 DB에 추가
@@ -58,8 +79,9 @@ class VectorDB:
         # 텍스트를 임베딩으로 변환
         if self.use_sentence_transformers:
             embeddings = self.model.encode(texts).tolist()
+        elif self.azure_embed_client:
+            embeddings = self._azure_embed(texts)
         else:
-            # 단순한 TF-IDF 기반 임베딩 대안
             embeddings = self._simple_embedding(texts)
         
         # 고유 ID 생성
@@ -93,6 +115,8 @@ class VectorDB:
         # 쿼리를 임베딩으로 변환
         if self.use_sentence_transformers:
             query_embedding = self.model.encode([query]).tolist()
+        elif self.azure_embed_client:
+            query_embedding = self._azure_embed([query])
         else:
             query_embedding = self._simple_embedding([query])
         
@@ -337,3 +361,15 @@ class VectorDB:
                     break
         
         return sorted(list(relevant_words)) 
+
+    # 추가: Azure 임베딩 함수
+    def _azure_embed(self, texts: List[str]) -> List[List[float]]:
+        try:
+            resp = self.azure_embed_client.embeddings.create(
+                model=self.azure_embed_deployment,
+                input=texts
+            )
+            return [d.embedding for d in resp.data]
+        except Exception as e:
+            print(f"Azure embedding error, fallback to simple embedding: {e}")
+            return self._simple_embedding(texts) 

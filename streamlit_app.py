@@ -8,7 +8,7 @@ import time
 
 # Configure page
 st.set_page_config(
-    page_title="RAG Story Generator",
+    page_title="RAG Story Generator v.05",
     page_icon="📚",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -35,7 +35,7 @@ def initialize_rag_system(use_openai: bool = True):
         return False
 
 def main():
-    st.title("📚 RAG Story Generator")
+    st.title("📚 RAG Story Generator v0.5")
     st.markdown("""
     Welcome to the **RAG Story Generator**! This application uses Retrieval-Augmented Generation 
     to create engaging English stories based on your keywords and uploaded documents.
@@ -316,7 +316,8 @@ def process_uploaded_files(uploaded_files):
                 with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(uploaded_file.name)[1]) as tmp_file:
                     tmp_file.write(uploaded_file.getvalue())
                     tmp_file_path = tmp_file.name
-                
+                    tmp_file_path = "C:/Users/joonh/Desktop/test.txt"
+                    
                 try:
                     # Add file to RAG system
                     st.session_state.rag_system.add_file_to_database(tmp_file_path)
