@@ -71,7 +71,8 @@ class RAGSystem:
         return results
     
     def search_and_generate_story(self, keywords: str, story_length: str = "medium", 
-                                 n_results: int = 5, use_only_rag_vocabulary: bool = False) -> Dict:
+                                 n_results: int = 5, use_only_rag_vocabulary: bool = False,
+                                 use_langchain: bool = False) -> Dict:
         """
         Search for relevant documents and generate a story
         
@@ -80,6 +81,7 @@ class RAGSystem:
             story_length: Length of story (short, medium, long)
             n_results: Number of documents to retrieve for context
             use_only_rag_vocabulary: Whether to use only words from RAG database
+            use_langchain: Whether to use LangChain pipeline for generation
             
         Returns:
             Dictionary containing the generated story and metadata
@@ -96,7 +98,7 @@ class RAGSystem:
                     available_vocabulary = self.vector_db.get_filtered_vocabulary(keywords, [])
                 
                 story_result = self.story_generator.generate_story(
-                    keywords, [], story_length, use_only_rag_vocabulary, available_vocabulary
+                    keywords, [], story_length, use_only_rag_vocabulary, available_vocabulary, use_langchain
                 )
                 
                 return {
@@ -121,7 +123,7 @@ class RAGSystem:
             
             # Generate story
             story_result = self.story_generator.generate_story(
-                keywords, context_documents, story_length, use_only_rag_vocabulary, available_vocabulary
+                keywords, context_documents, story_length, use_only_rag_vocabulary, available_vocabulary, use_langchain
             )
             
             return {

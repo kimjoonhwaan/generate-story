@@ -50,13 +50,21 @@ def main():
     with st.sidebar:
         st.header("⚙️ Configuration")
         
-        # OpenAI API option
+        # OpenAI/Azure OpenAI option
         use_openai = st.checkbox(
-            "Use OpenAI API (requires API key)", 
+            "Use OpenAI/Azure OpenAI API",
             value=True,
-            help="Enable this to use OpenAI's GPT for better story generation. Requires OPENAI_API_KEY in environment."
+            help="Use OpenAI or Azure OpenAI for better story generation."
         )
         
+        use_langchain = st.checkbox(
+            "Use LangChain pipeline",
+            value=False,
+            help="Use a LangChain prompt+LLM pipeline for generation. Falls back to default on error."
+        )
+        
+        openai_ok = False
+        aoai_ok = False
         if use_openai:
             openai_ok = bool(os.getenv("OPENAI_API_KEY"))
             aoai_ok = all([
@@ -353,7 +361,7 @@ def main():
         )
     
     if st.button("🎭 Generate Story", type="primary", disabled=not keywords.strip()):
-        generate_story(keywords, story_length, use_rag_vocab_only)
+        generate_story(keywords, story_length, use_rag_vocab_only, use_langchain)
     
     # Example section
     with st.expander("💡 Examples & Tips"):
@@ -429,7 +437,7 @@ def process_uploaded_files(uploaded_files):
         st.error(f"Error processing files: {e}")
         st.write("Please try again or check if the files are valid.")
 
-def generate_story(keywords: str, story_length: str, use_rag_vocab_only: bool = False):
+def generate_story(keywords: str, story_length: str, use_rag_vocab_only: bool = False, use_langchain: bool = False):
     """Generate a story based on keywords"""
     try:
         with st.spinner("🎨 Generating your story..."):
@@ -440,10 +448,11 @@ def generate_story(keywords: str, story_length: str, use_rag_vocab_only: bool = 
                 progress_bar.progress(i + 1)
             
             result = st.session_state.rag_system.search_and_generate_story(
-                keywords, 
+                keywords,
                 story_length=story_length,
                 n_results=5,
-                use_only_rag_vocabulary=use_rag_vocab_only
+                use_only_rag_vocabulary=use_rag_vocab_only,
+                use_langchain=use_langchain,
             )
         
         # Display the story

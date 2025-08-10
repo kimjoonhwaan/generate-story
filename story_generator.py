@@ -3,6 +3,7 @@ from typing import List, Dict
 from openai import OpenAI, AzureOpenAI
 from dotenv import load_dotenv
 import random
+from lc_pipeline import generate_story_langchain
 
 load_dotenv()
 
@@ -402,7 +403,7 @@ Write the story now:"""
     
     def generate_story(self, keywords: str, context_documents: List[str] = None,
                       story_length: str = "medium", use_vocabulary_restriction: bool = False, 
-                      available_vocabulary: List[str] = None) -> Dict:
+                      available_vocabulary: List[str] = None, use_langchain: bool = False) -> Dict:
         """
         Generate a story with detailed logging and metadata
         """
@@ -418,31 +419,50 @@ Write the story now:"""
         print(f"   - 전체 키워드: {', '.join(keyword_list)}")
         print(f"   - 길이: {story_length}")
         print(f"   - RAG 어휘 제한: {use_vocabulary_restriction}")
+        print(f"   - LangChain 파이프라인: {use_langchain}")
         
         if context_documents:
             print(f"   - 관련 컨텍스트 문서: {len(context_documents)}/3")
         
-        if use_vocabulary_restriction and available_vocabulary:
-            print(f"   - 사용 가능한 어휘: {len(available_vocabulary)}개")
-            
-            # 어휘 제한이 있으면 OpenAI만 사용
-            story = self.generate_story_with_openai(
-                keyword_list, context_documents, story_length, available_vocabulary
-            )
-            method = "openai"
-        else:
-            # 일반 모드: OpenAI 우선, 실패 시 로컬
+        if use_langchain:
+            # LangChain 파이프라인 사용
             try:
+                story = generate_story_langchain(
+                    keyword_list,
+                    context_documents or [],
+                    story_length,
+                    available_vocabulary if use_vocabulary_restriction else None,
+                )
+                # LangChain 사용 시에도 어휘 제한이 활성화되어 있으면 어휘 분석을 추가
+                if use_vocabulary_restriction and available_vocabulary:
+                    story = self._annotate_non_rag_words(story, available_vocabulary)
+                method = "langchain"
+            except Exception as e:
+                print(f"   - LangChain 파이프라인 실패, OpenAI로 폴백: {e}")
                 story = self.generate_story_with_openai(
-                    keyword_list, context_documents, story_length, None
+                    keyword_list, context_documents, story_length,
+                    available_vocabulary if use_vocabulary_restriction else None
                 )
                 method = "openai"
-            except Exception as e:
-                print(f"   - OpenAI 실패, 로컬 생성으로 전환: {e}")
-                story = self.generate_story_locally(
-                    keyword_list, context_documents, story_length, None
+        else:
+            if use_vocabulary_restriction and available_vocabulary:
+                print(f"   - 사용 가능한 어휘: {len(available_vocabulary)}개")
+                story = self.generate_story_with_openai(
+                    keyword_list, context_documents, story_length, available_vocabulary
                 )
-                method = "local"
+                method = "openai"
+            else:
+                try:
+                    story = self.generate_story_with_openai(
+                        keyword_list, context_documents, story_length, None
+                    )
+                    method = "openai"
+                except Exception as e:
+                    print(f"   - OpenAI 실패, 로컬 생성으로 전환: {e}")
+                    story = self.generate_story_locally(
+                        keyword_list, context_documents, story_length, None
+                    )
+                    method = "local"
         
         # 결과 분석
         word_count = len(story.split())
