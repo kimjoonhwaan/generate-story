@@ -5,6 +5,7 @@ import pandas as pd
 from rag_system import RAGSystem
 from typing import List
 import time
+from agents.agent_flow import run_multi_agent_flow
 
 # Configure page
 st.set_page_config(
@@ -35,15 +36,15 @@ def initialize_rag_system(use_openai: bool = True):
         return False
 
 def main():
-    st.title("📚 RAG Story Generator v0.5")
+    st.title("📚 Story Generator(v0.5)")
     st.markdown("""
-    Welcome to the **RAG Story Generator**! This application uses Retrieval-Augmented Generation 
-    to create engaging English stories based on your keywords and uploaded documents.
+    스토리 생성기에 오신 것을 환영합니다! 이 애플리케이션은 검색 증강 생성(Retrieval-Augmented Generation) 기술을 사용하여 키워드와 
+    업로드된 문서를 기반으로 흥미로운 영어 스토리를 제작합니다.
     
     ### How it works:
-    1. **Upload Files**: Add text documents to build your knowledge base
-    2. **Enter Keywords**: Provide English keywords for story generation
-    3. **Generate Story**: Let AI create a unique story using your keywords and document context
+    1. **Upload Files**: 텍스트 문서를 업로드하여 지식 베이스를 구축합니다.
+    2. **Enter Keywords**: 스토리 생성을 위한 영어 키워드를 입력합니다.
+    3. **Generate Story**: AI가 키워드와 문서 컨텍스트를 기반으로 유니크한 스토리를 생성합니다.
     """)
     
     # Sidebar for configuration
@@ -59,8 +60,13 @@ def main():
         
         use_langchain = st.checkbox(
             "Use LangChain pipeline",
-            value=False,
+            value=True,
             help="Use a LangChain prompt+LLM pipeline for generation. Falls back to default on error."
+        )
+        multi_agent = st.checkbox(
+            "Use Multi-Agent (LangGraph + ReAct)",
+            value=True,
+            help="Experimental: Orchestrate retrieve→generate→evaluate→revise using tools"
         )
         
         openai_ok = False
@@ -75,7 +81,7 @@ def main():
             ])
 
         if openai_ok or aoai_ok:
-            st.success("✅ OpenAI/Azure OpenAI configuration found")
+            st.success("✅ OpenAI configuration found")
             if aoai_ok:
                 st.caption("Using Azure OpenAI (deployment model name will be used).")
         else:
@@ -83,7 +89,7 @@ def main():
             st.info("Set either OPENAI_API_KEY or AOAI_* variables in your environment.")
         
         # Initialize system button
-        if st.button("🚀 Initialize RAG System", type="primary"):
+        if st.button("🚀 RAG System 초기화", type="primary"):
             initialize_rag_system(use_openai)
         
         # Database stats
@@ -309,7 +315,7 @@ def main():
 
     # Main content
     if not st.session_state.database_initialized:
-        st.info("👈 Please initialize the RAG system using the sidebar to get started.")
+        st.info("👈 시작하려면 사이드바를 사용하여 RAG 시스템을 초기화하세요.")
         return
     
     # File upload section
@@ -356,12 +362,12 @@ def main():
         
         use_rag_vocab_only = st.checkbox(
             "Use only RAG vocabulary",
-            value=False,
+            value=True,
             help="생성된 스토리에서 업로드된 문서의 단어들만 사용합니다"
         )
     
     if st.button("🎭 Generate Story", type="primary", disabled=not keywords.strip()):
-        generate_story(keywords, story_length, use_rag_vocab_only, use_langchain)
+        generate_story(keywords, story_length, use_rag_vocab_only, use_langchain, multi_agent)
     
     # Example section
     with st.expander("💡 Examples & Tips"):
@@ -437,7 +443,7 @@ def process_uploaded_files(uploaded_files):
         st.error(f"Error processing files: {e}")
         st.write("Please try again or check if the files are valid.")
 
-def generate_story(keywords: str, story_length: str, use_rag_vocab_only: bool = False, use_langchain: bool = False):
+def generate_story(keywords: str, story_length: str, use_rag_vocab_only: bool = False, use_langchain: bool = False, multi_agent: bool = False):
     """Generate a story based on keywords"""
     try:
         with st.spinner("🎨 Generating your story..."):
@@ -447,13 +453,36 @@ def generate_story(keywords: str, story_length: str, use_rag_vocab_only: bool = 
                 time.sleep(0.01)  # Simulate progress
                 progress_bar.progress(i + 1)
             
-            result = st.session_state.rag_system.search_and_generate_story(
-                keywords,
-                story_length=story_length,
-                n_results=5,
-                use_only_rag_vocabulary=use_rag_vocab_only,
-                use_langchain=use_langchain,
-            )
+            if multi_agent:
+                allowed_vocab = None
+                if use_rag_vocab_only:
+                    allowed_vocab = st.session_state.rag_system.vector_db.get_filtered_vocabulary(keywords, [])
+                final_state = run_multi_agent_flow(
+                    st.session_state.rag_system,
+                    keywords,
+                    story_length,
+                    allowed_vocab,
+                )
+                story_text = final_state.get("story", "")
+                result = {
+                    'story': story_text,
+                    'keywords': keywords,
+                    'search_results_count': 0,
+                    'generation_method': 'multi_agent',
+                    'keywords_used': [],
+                    'keyword_usage_rate': 0,
+                    'vocabulary_restricted': bool(allowed_vocab),
+                    'vocabulary_count': len(allowed_vocab) if allowed_vocab else 0,
+                    'agent_logs': final_state.get('logs', []),
+                }
+            else:
+                result = st.session_state.rag_system.search_and_generate_story(
+                    keywords, 
+                    story_length=story_length,
+                    n_results=5,
+                    use_only_rag_vocabulary=use_rag_vocab_only,
+                    use_langchain=use_langchain,
+                )
         
         # Display the story
         st.success("Story generated successfully!")
@@ -525,6 +554,12 @@ def generate_story(keywords: str, story_length: str, use_rag_vocab_only: bool = 
                 if result.get('vocabulary_restricted'):
                     st.write(f"**Vocabulary constraint applied:** Yes, {result.get('vocabulary_count', 0)} words available")
         
+        # Agent logs (multi-agent)
+        if result.get('generation_method') == 'multi_agent' and result.get('agent_logs'):
+            with st.expander("🛠 Agent Progress Logs"):
+                for line in result['agent_logs']:
+                    st.write(line)
+
     except Exception as e:
         st.error(f"Error generating story: {e}")
         st.write("Please try again with different keywords or check your settings.")

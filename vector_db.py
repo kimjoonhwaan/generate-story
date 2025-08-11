@@ -79,10 +79,9 @@ class VectorDB:
         # 텍스트를 임베딩으로 변환
         if self.use_sentence_transformers:
             embeddings = self.model.encode(texts).tolist()
-        elif self.azure_embed_client:
+        else: 
             embeddings = self._azure_embed(texts)
-        else:
-            embeddings = self._simple_embedding(texts)
+            
         
         # 고유 ID 생성
         ids = [f"doc_{i}_{hash(text)}" for i, text in enumerate(texts)]
@@ -115,10 +114,8 @@ class VectorDB:
         # 쿼리를 임베딩으로 변환
         if self.use_sentence_transformers:
             query_embedding = self.model.encode([query]).tolist()
-        elif self.azure_embed_client:
-            query_embedding = self._azure_embed([query])
         else:
-            query_embedding = self._simple_embedding([query])
+            query_embedding = self._azure_embed([query])
         
         # 유사한 문서 검색
         results = self.collection.query(
@@ -183,52 +180,6 @@ class VectorDB:
                 print(f"새 컬렉션 생성 실패: {e2}")
                 raise e2
     
-    def _simple_embedding(self, texts: List[str]) -> List[List[float]]:
-        """
-        간단한 TF-IDF 기반 임베딩 (sentence_transformers 대안)
-        
-        Args:
-            texts: 임베딩할 텍스트 리스트
-            
-        Returns:
-            임베딩 벡터 리스트
-        """
-        import re
-        from collections import Counter
-        import math
-        
-        # 간단한 토큰화
-        def tokenize(text):
-            return re.findall(r'\b\w+\b', text.lower())
-        
-        # 모든 텍스트에서 단어 추출
-        all_words = set()
-        tokenized_texts = []
-        for text in texts:
-            tokens = tokenize(text)
-            tokenized_texts.append(tokens)
-            all_words.update(tokens)
-        
-        all_words = list(all_words)
-        vocab_size = len(all_words)
-        
-        # 각 텍스트에 대해 TF-IDF 벡터 생성
-        embeddings = []
-        for tokens in tokenized_texts:
-            tf = Counter(tokens)
-            tf_vector = [tf.get(word, 0) / len(tokens) if tokens else 0 for word in all_words]
-            
-            # 간단한 정규화 (100차원으로 축소)
-            if vocab_size > 100:
-                # 상위 100개 차원만 사용
-                tf_vector = tf_vector[:100]
-            else:
-                # 100차원으로 패딩
-                tf_vector.extend([0.0] * (100 - len(tf_vector)))
-            
-            embeddings.append(tf_vector)
-        
-        return embeddings
     
     def _load_vocabulary(self):
         """저장된 어휘 파일을 로드"""
@@ -364,12 +315,42 @@ class VectorDB:
 
     # 추가: Azure 임베딩 함수
     def _azure_embed(self, texts: List[str]) -> List[List[float]]:
+        if not self.azure_embed_client or not self.azure_embed_deployment:
+            raise RuntimeError("Azure embedding client not configured")
+
+        # 1) 입력 정제: 문자열화, 공백/빈문자 제거, 길이 제한
+        clean: List[str] = []
+        for t in texts:
+            if t is None:
+                continue
+            s = str(t).replace("\x00", "").strip()
+            if not s:
+                continue
+            if len(s) > 8000:
+                s = s[:8000]
+            clean.append(s)
+
+        if not clean:
+            raise ValueError("No valid text to embed")
+
+        # 2) 배치 호출 → 실패 시 단건 재시도
         try:
             resp = self.azure_embed_client.embeddings.create(
                 model=self.azure_embed_deployment,
-                input=texts
+                input=clean  # list[str]
             )
             return [d.embedding for d in resp.data]
         except Exception as e:
-            print(f"Azure embedding error, fallback to simple embedding: {e}")
-            return self._simple_embedding(texts) 
+            # 일부 환경에서 배치 입력 형식 오류가 날 수 있어 단건으로 재시도
+            try:
+                out: List[List[float]] = []
+                for s in clean:
+                    r = self.azure_embed_client.embeddings.create(
+                        model=self.azure_embed_deployment,
+                        input=s  # single str
+                    )
+                    out.append(r.data[0].embedding)
+                return out
+            except Exception as e2:
+                raise RuntimeError(f"Azure embedding failed: {e2}") from e
+            

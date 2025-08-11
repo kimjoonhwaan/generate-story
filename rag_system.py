@@ -88,7 +88,12 @@ class RAGSystem:
         """
         try:
             # Search for relevant documents
-            search_results = self.vector_db.search(keywords, n_results=n_results)
+            search_query = (keywords or "").strip()
+            if "," in search_query:
+                search_query = search_query.split(",")[0].strip()  # 대표 키워드만
+            if not search_query:
+                raise ValueError("Empty search query")
+            search_results = self.vector_db.search(search_query, n_results=n_results)
             
             if not search_results:
                 print("No relevant documents found in the database.")

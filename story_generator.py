@@ -131,7 +131,8 @@ Write the story now:"""
         for attempt in range(max_retries):
             try:
                 print(f"   - OpenAI API 시도 {attempt + 1}/{max_retries}...")
-                
+                print(f"   - OpenAI prompt {prompt}")
+
                 response = self.client.chat.completions.create(
                    # model="gpt-4",
                     model=(self.azure_deployment if self.is_azure else "gpt-4"),
